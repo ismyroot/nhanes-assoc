@@ -19,31 +19,36 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
+ARG CRAN_REPO=https://cloud.r-project.org
+
 USER root
 WORKDIR /work
 
-# kableExtra / svglite / textshaping 运行时依赖（base-image 编译栈可能未覆盖全部）
+# kableExtra / svglite / textshaping 编译与运行时依赖（对齐 bulkrna-Base / scRNA-base）
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake \
+    libcairo2-dev \
+    libcurl4-openssl-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libssl-dev \
+    libtiff5-dev \
+    libuv1-dev \
+    zlib1g-dev \
     libharfbuzz-dev \
     libfribidi-dev \
-    libfreetype6-dev \
-    libpng-dev \
-    libtiff5-dev \
-    libjpeg-dev \
-    libfontconfig1-dev \
+    libxml2-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# NHANES 关联分析 R 包（P3M bookworm 二进制，与 base-image 一致）
-RUN R -e "options(repos = c(CRAN = 'https://packagemanager.posit.co/cran/__linux__/bookworm/latest')); \
-  Sys.setenv(RSPM_ROOT = 'https://packagemanager.posit.co/cran/__linux__/bookworm/latest'); \
-  pkgs <- c('data.table', 'dplyr', 'survey', 'ggplot2', 'knitr', 'kableExtra', 'forestplot'); \
-  install.packages(pkgs, Ncpus = parallel::detectCores(), ask = FALSE, dependencies = TRUE); \
-  for (p in pkgs) { \
-    if (!require(p, character.only = TRUE, quietly = TRUE)) { \
-      stop('Failed to load package: ', p) \
-    } \
-  }; \
-  cat('nhanes-assoc R packages OK\n')" \
+# 分步安装，避免 dependencies=TRUE 并行拉取大量 Suggests 导致 kableExtra 装完却无法 load
+RUN R -e "install.packages(c('data.table', 'dplyr', 'survey', 'ggplot2', 'knitr'), repos='${CRAN_REPO}', ask=FALSE)" && \
+    R -e "remotes::install_version('kableExtra', '1.4.0', repos='${CRAN_REPO}', upgrade='never')" && \
+    R -e "install.packages('forestplot', repos='${CRAN_REPO}', ask=FALSE)"
+
+RUN R -e "suppressPackageStartupMessages({ \
+  library(data.table); library(dplyr); library(survey); library(ggplot2); \
+  library(knitr); library(kableExtra); library(forestplot); \
+}); cat('nhanes-assoc R packages OK\n')" \
  && quarto --version | head -1
-
-
