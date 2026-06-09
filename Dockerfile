@@ -22,16 +22,27 @@ ENV LC_ALL=C.UTF-8
 USER root
 WORKDIR /work
 
+# kableExtra / svglite / textshaping 运行时依赖（base-image 编译栈可能未覆盖全部）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
+    libfontconfig1-dev \
+ && rm -rf /var/lib/apt/lists/*
+
 # NHANES 关联分析 R 包（P3M bookworm 二进制，与 base-image 一致）
 RUN R -e "options(repos = c(CRAN = 'https://packagemanager.posit.co/cran/__linux__/bookworm/latest')); \
   Sys.setenv(RSPM_ROOT = 'https://packagemanager.posit.co/cran/__linux__/bookworm/latest'); \
-  install.packages(c( \
-    'data.table', 'dplyr', 'survey', 'ggplot2', 'knitr', 'kableExtra', 'forestplot' \
-  ), Ncpus = parallel::detectCores(), ask = FALSE)"
-
-RUN R -e "pkgs <- c('data.table', 'dplyr', 'survey', 'ggplot2', 'knitr', 'kableExtra', 'forestplot'); \
-  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]; \
-  if (length(missing) > 0) stop('Missing packages: ', paste(missing, collapse = ', ')); \
+  pkgs <- c('data.table', 'dplyr', 'survey', 'ggplot2', 'knitr', 'kableExtra', 'forestplot'); \
+  install.packages(pkgs, Ncpus = parallel::detectCores(), ask = FALSE, dependencies = TRUE); \
+  for (p in pkgs) { \
+    if (!require(p, character.only = TRUE, quietly = TRUE)) { \
+      stop('Failed to load package: ', p) \
+    } \
+  }; \
   cat('nhanes-assoc R packages OK\n')" \
  && quarto --version | head -1
 
