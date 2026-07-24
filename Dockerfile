@@ -4,8 +4,8 @@
 #
 # 构建示例：
 #   cd /home/ubuntu/zhaoyiran/TOOL-Dockerfile/NHANES
-#   docker build -t quay.io/1733295510/nhanes-assoc:V1.0.0 .
-#   docker tag quay.io/1733295510/nhanes-assoc:V1.0.0 \
+#   docker build -t quay.io/1733295510/nhanes-assoc:V1.2.0 .
+#   docker tag quay.io/1733295510/nhanes-assoc:V1.2.0 \
 #     genaibase-cn-beijing.cr.volces.com/genaibase/nhanes-assoc:v1
 #   docker push genaibase-cn-beijing.cr.volces.com/genaibase/nhanes-assoc:v1
 
@@ -45,10 +45,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 分步安装，避免 dependencies=TRUE 并行拉取大量 Suggests 导致 kableExtra 装完却无法 load
 RUN R -e "install.packages(c('data.table', 'dplyr', 'survey', 'ggplot2', 'knitr'), repos='${CRAN_REPO}', ask=FALSE)" && \
     R -e "remotes::install_version('kableExtra', '1.4.0', repos='${CRAN_REPO}', upgrade='never')" && \
-    R -e "install.packages('forestplot', repos='${CRAN_REPO}', ask=FALSE)"
+    R -e "install.packages('forestplot', repos='${CRAN_REPO}', ask=FALSE)" && \
+    R -e "install.packages('tableone', repos='${CRAN_REPO}', ask=FALSE)" && \
+    R -e "install.packages('gtsummary', repos='${CRAN_REPO}', ask=FALSE, dependencies=TRUE)"
 
 RUN R -e "suppressPackageStartupMessages({ \
   library(data.table); library(dplyr); library(survey); library(ggplot2); \
   library(knitr); library(kableExtra); library(forestplot); \
+  library(tableone); library(gtsummary); \
 }); cat('nhanes-assoc R packages OK\n')" \
  && quarto --version | head -1
